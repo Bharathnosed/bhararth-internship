@@ -1,0 +1,119 @@
+/* =========================================
+   1. CSS VARIABLES
+   These define your color palette once. 
+   If you want to change the theme later, you only change it here.
+========================================= */
+:root {
+    --primary-color: #28a745;
+    --primary-hover: #218838;
+    --bg-color: #f4f4f9;
+    --text-color: #333;
+    --border-color: #ccc;
+    --card-bg: #ffffff;
+}
+
+/* =========================================
+   2. THE RESET
+   Browsers add default margins. This strips them out 
+   and ensures padding doesn't break your widths (box-sizing).
+========================================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* =========================================
+   3. FLEXBOX (The Layout Engine)
+   This centers your form dead in the middle of the screen.
+========================================= */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    
+    /* Flexbox rules */
+    display: flex;
+    justify-content: center; /* Centers horizontally */
+    align-items: center;     /* Centers vertically */
+    height: 100vh;           /* Takes up 100% of the viewport height */
+}
+
+/* =========================================
+   4. THE COMPONENT (The Form Card)
+========================================= */
+.container {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px; /* Prevents it from stretching too wide on large screens */
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: var(--text-color);
+}
+
+/* Flexbox on the form to easily stack inputs vertically */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Adds perfect spacing between inputs without using margins */
+}
+
+input {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+/* Highlight the input blue/green when the user clicks inside it */
+input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+button {
+    padding: 12px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: var(--primary-hover);
+}
+
+/* =========================================
+   5. UTILITY CLASSES
+========================================= */
+.link-text {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.link-text a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.link-text a:hover {
+    text-decoration: underline;
+}
+
+#message {
+    margin-top: 15px;
+    text-align: center;
+}

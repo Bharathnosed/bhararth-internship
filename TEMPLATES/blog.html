@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blog Feed</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Specific styles for the blog layout */
+        .post-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .post-title { margin-bottom: 5px; color: var(--primary-color); }
+        .post-meta { font-size: 12px; color: #666; margin-bottom: 15px; }
+        .post-content { margin-bottom: 15px; line-height: 1.5; }
+        .comment-section { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+        .comment { font-size: 14px; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .comment-author { font-weight: bold; color: #333; }
+        textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 10px; resize: vertical; font-family: inherit; }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 700px;">
+        <h2>Global Blog Feed</h2>
+        <p style="text-align: center; margin-bottom: 20px;">Posting as: <strong>{{ username }}</strong></p>
+
+        <div class="post-card" style="border: 2px solid var(--primary-color);">
+            <h3 style="margin-bottom: 15px;">Create a New Post</h3>
+            <input type="text" id="postTitle" placeholder="Post Title" required>
+            <textarea id="postContent" rows="4" placeholder="Write your thoughts here..." required></textarea>
+            <button onclick="createPost()">Publish Post</button>
+        </div>
+
+        <div id="blogFeed"></div>
+
+        <p class="link-text"><a href="/profile">Back to Profile</a></p>
+    </div>
+
+    <script>
+        // Trigger the fetch the moment the page loads
+        document.addEventListener("DOMContentLoaded", loadPosts);
+
+        // Fetch all posts from the API
+        async function loadPosts() {
+            try {
+                const response = await fetch('/api/posts');
+                if (!response.ok) {
+                    if (response.status === 401) window.location.href = '/login';
+                    return;
+                }
+                const posts = await response.json();
+                renderPosts(posts);
+            } catch (error) {
+                console.error("Error loading posts:", error);
+            }
+        }
+
+        // Draw the posts on the screen
+        function renderPosts(posts) {
+            const feed = document.getElementById('blogFeed');
+            feed.innerHTML = '';
+
+            posts.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.className = 'post-card';
+                
+                // Convert the raw timestamp into a readable format
+                const date = new Date(post.created_at).toLocaleString();
+
+                postDiv.innerHTML = `
+                    <h3 class="post-title">${post.title}</h3>
+                    <div class="post-meta">By ${post.author} on ${date}</div>
+                    <div class="post-content">${post.content}</div>
+                    
+                    <div class="comment-section" id="comments-${post.id}">
+                        <button onclick="loadComments(${post.id})" style="background-color: #6c757d; padding: 6px 12px; font-size: 14px; width: auto;">View/Add Comments</button>
+                    </div>
+                `;
+                feed.appendChild(postDiv);
+            });
+        }
+
+        // Send a new post to the API
+        async function createPost() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+            if (!title || !content) return;
+
+            try {
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+
+                if (response.ok) {
+                    document.getElementById('postTitle').value = '';
+                    document.getElementById('postContent').value = '';
+                    loadPosts(); // Refresh the feed immediately
+                }
+            } catch (error) {
+                console.error("Error creating post:", error);
+            }
+        }
+
+        // Fetch comments for a specific post
+        async function loadComments(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`);
+                const comments = await response.json();
+                
+                const commentSection = document.getElementById(`comments-${postId}`);
+                let commentsHTML = `<h4 style="margin-bottom: 10px;">Comments</h4>`;
+                
+                comments.forEach(c => {
+                    const date = new Date(c.created_at).toLocaleString();
+                    commentsHTML += `
+                        <div class="comment">
+                            <span class="comment-author">${c.author}:</span> ${c.content} 
+                            <div style="font-size: 11px; color: #999; margin-top: 3px;">${date}</div>
+                        </div>
+                    `;
+                });
+
+                // Inject the form to add a new comment
+                commentsHTML += `
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <input type="text" id="newComment-${postId}" placeholder="Write a comment..." style="margin: 0; flex-grow: 1;">
+                        <button onclick="addComment(${postId})" style="padding: 12px; font-size: 14px; width: auto;">Reply</button>
+                    </div>
+                `;
+                
+                commentSection.innerHTML = commentsHTML;
+            } catch (error) {
+                console.error("Error loading comments:", error);
+            }
+        }
+
+        // Send a new comment to the API
+        async function addComment(postId) {
+            const content = document.getElementById(`newComment-${postId}`).value.trim();
+            if (!content) return;
+
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+
+                if (response.ok) {
+                    loadComments(postId); // Refresh only this post's comment section
+                }
+            } catch (error) {
+                console.error("Error adding comment:", error);
+            }
+        }
+    </script>
+</body>
+</html>

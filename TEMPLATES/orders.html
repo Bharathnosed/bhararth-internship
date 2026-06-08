@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order History</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .order-card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
+        .order-header { display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 700px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>My Order History</h2>
+            <a href="/profile" style="color: #007bff; text-decoration: none; font-weight: bold;">← Back</a>
+        </div>
+        <div id="ordersContainer"></div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            const res = await fetch('/api/orders');
+            if (!res.ok) return window.location.href = '/login';
+            const orders = await res.json();
+            const container = document.getElementById('ordersContainer');
+            if (orders.length === 0) return container.innerHTML = '<p>No orders yet.</p>';
+            
+            orders.forEach(order => {
+                // Map over the items and inject an image thumbnail alongside the text
+                let itemsHTML = order.items.map(i => `
+                    <li style="display: flex; align-items: center; gap: 15px; padding: 10px 0; border-bottom: 1px solid #eee;">
+                        <img src="${i.image_url}" alt="${i.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;">
+                        <div style="flex-grow: 1;">
+                            <strong>${i.name}</strong><br>
+                            <span style="color: #666; font-size: 14px;">Qty: ${i.quantity}</span>
+                        </div>
+                        <div style="font-weight: bold;">
+                            ₹${(i.price_at_purchase * i.quantity).toFixed(2)}
+                        </div>
+                    </li>
+                `).join('');
+                container.innerHTML += `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <div><strong>Order #${order.id}</strong><br><small>${new Date(order.created_at).toLocaleString()}</small></div>
+                            <div style="color: green; font-weight: bold;">${order.status}</div>
+                        </div>
+                        <p><strong>Shipping To:</strong> ${order.shipping_address}</p>
+                        <ul>${itemsHTML}</ul>
+                        <h4 style="text-align: right;">Total: ₹${order.total_price.toFixed(2)}</h4>
+                    </div>`;
+            });
+        });
+    </script>
+</body>
+</html>

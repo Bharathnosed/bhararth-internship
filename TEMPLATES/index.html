@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <h2>Register</h2>
+    <form id="registerForm">
+        <input type="text" id="regUsername" placeholder="Username" required>
+        <input type="email" id="regEmail" placeholder="Email" required>
+        <input type="password" id="regPassword" placeholder="Password" required>
+        <button type="submit">Sign Up</button>
+    </form>
+    
+    <p id="regMessage" class="link-text" style="font-weight: bold;"></p>
+
+    <p class="link-text">
+        Already have an account? <a href="/login">Login here</a>
+    </p>
+</div>
+
+<script>
+    document.getElementById("registerForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const username = document.getElementById("regUsername").value;
+        const email = document.getElementById("regEmail").value;
+        const password = document.getElementById("regPassword").value;
+        const messageBox = document.getElementById("regMessage");
+
+        try {
+            const response = await fetch("/api/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password })
+            });
+
+            if (response.ok) {
+                messageBox.style.color = "var(--primary-color)";
+                messageBox.innerText = "Registration successful! Click the login link below.";
+            } else {
+                const data = await response.json();
+                messageBox.style.color = "#dc3545";
+                messageBox.innerText = data.error || "Registration failed.";
+            }
+        } catch (error) {
+            messageBox.style.color = "#dc3545";
+            messageBox.innerText = "Error connecting to server.";
+        }
+    });
+</script>
+
+</body>
+</html>
