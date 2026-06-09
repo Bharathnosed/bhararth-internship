@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Take Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .question-card { background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .option { display: block; padding: 10px; margin: 5px 0; border: 1px solid #eee; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .option:hover { background-color: #f8f9fa; }
+        .correct { background-color: #d4edda !important; border-color: #28a745 !important; color: #155724; font-weight: bold; }
+        .incorrect { background-color: #f8d7da !important; border-color: #dc3545 !important; color: #721c24; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 700px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Knowledge Quiz</h2>
+            <a href="/profile" style="color: #007bff; text-decoration: none; font-weight: bold;">← Cancel & Return</a>
+        </div>
+        
+        <div id="quizContainer">Loading questions...</div>
+        
+        <button id="submitBtn" onclick="submitQuiz()" style="width: 100%; display: none; background: #007bff; font-size: 16px; padding: 15px; margin-top: 15px;">Submit Final Answers</button>
+        
+        <div id="resultText" style="text-align: center; font-size: 24px; font-weight: bold; margin-top: 25px; color: #28a745;"></div>
+        
+        <a id="returnBtn" href="/profile" style="display: none; width: 100%; text-align: center; background: #6c757d; color: white; padding: 15px; border-radius: 4px; text-decoration: none; font-weight: bold; margin-top: 15px; box-sizing: border-box;">Return to Profile Dashboard</a>
+    </div>
+
+    <script>
+        let questionsList = [];
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const res = await fetch('/api/questions');
+            if (!res.ok) return window.location.href = '/login';
+            questionsList = await res.json();
+            renderQuiz();
+        });
+
+        function renderQuiz() {
+            const container = document.getElementById('quizContainer');
+            if(questionsList.length === 0) return container.innerHTML = "<p>No questions available. Go to the dashboard and add some first.</p>";
+            
+            container.innerHTML = questionsList.map((q, index) => `
+                <div class="question-card" id="q-${q.id}">
+                    <h4 style="margin-top: 0;">${index + 1}. ${q.question_text}</h4>
+                    <label class="option"><input type="radio" name="q_${q.id}" value="A"> A) ${q.option_a}</label>
+                    <label class="option"><input type="radio" name="q_${q.id}" value="B"> B) ${q.option_b}</label>
+                    <label class="option"><input type="radio" name="q_${q.id}" value="C"> C) ${q.option_c}</label>
+                    <label class="option"><input type="radio" name="q_${q.id}" value="D"> D) ${q.option_d}</label>
+                </div>
+            `).join('');
+            document.getElementById('submitBtn').style.display = 'block';
+        }
+
+        async function submitQuiz() {
+            // Confirm before submitting to prevent accidental clicks
+            if (!confirm("Are you sure you want to submit your answers?")) return;
+
+            const answers = {};
+            questionsList.forEach(q => {
+                const selected = document.querySelector(`input[name="q_${q.id}"]:checked`);
+                if (selected) answers[q.id] = selected.value;
+            });
+
+            const res = await fetch('/api/quiz/submit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ answers })
+            });
+
+            const data = await res.json();
+            
+            // Display score and swap the buttons
+            document.getElementById('resultText').innerText = `You scored ${data.score} out of ${data.total}!`;
+            document.getElementById('submitBtn').style.display = 'none'; 
+            document.getElementById('returnBtn').style.display = 'block';
+
+            // Provide visual feedback
+            data.feedback.forEach(fb => {
+                const card = document.getElementById(`q-${fb.question_id}`);
+                const options = card.querySelectorAll('.option');
+                options.forEach(opt => {
+                    const input = opt.querySelector('input');
+                    input.disabled = true; // Lock the quiz choices
+                    
+                    // Highlight logic
+                    if (input.value === fb.correct_answer) {
+                        opt.classList.add('correct');
+                    } else if (input.value === fb.user_answer && !fb.is_correct) {
+                        opt.classList.add('incorrect');
+                    }
+                });
+            });
+            
+            // Scroll to bottom so they see their score immediately
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+    </script>
+</body>
+</html>

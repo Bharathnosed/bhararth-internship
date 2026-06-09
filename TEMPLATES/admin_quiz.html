@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Quiz Questions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container" style="max-width: 600px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Add Quiz Question</h2>
+            <a href="/profile" style="color: #007bff; text-decoration: none; font-weight: bold;">← Back to Profile</a>
+        </div>
+        <form id="questionForm">
+            <textarea id="q_text" placeholder="Question Text" required rows="3" style="width: 100%; padding: 10px; margin-bottom: 10px;"></textarea>
+            <input type="text" id="opt_a" placeholder="Option A" required>
+            <input type="text" id="opt_b" placeholder="Option B" required>
+            <input type="text" id="opt_c" placeholder="Option C" required>
+            <input type="text" id="opt_d" placeholder="Option D" required>
+            <select id="correct" required style="width: 100%; padding: 10px; margin-bottom: 20px;">
+                <option value="" disabled selected>Select Correct Option...</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+            </select>
+            
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="saveQuestion(true)" style="flex: 1; background: #17a2b8;">Save & Add Another</button>
+                <button type="button" onclick="saveQuestion(false)" style="flex: 1; background: #28a745;">Save & Return</button>
+            </div>
+        </form>
+    </div>
+    <script>
+        async function saveQuestion(addAnother) {
+            // Basic validation
+            const text = document.getElementById('q_text').value;
+            const correct = document.getElementById('correct').value;
+            if (!text || !correct) return alert("Please fill out the question and select a correct answer.");
+
+            const data = {
+                question_text: text,
+                option_a: document.getElementById('opt_a').value,
+                option_b: document.getElementById('opt_b').value,
+                option_c: document.getElementById('opt_c').value,
+                option_d: document.getElementById('opt_d').value,
+                correct_option: correct
+            };
+
+            const res = await fetch('/api/questions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                if (addAnother) {
+                    alert('Question Saved! You can type the next one.');
+                    document.getElementById('questionForm').reset();
+                    window.scrollTo(0, 0); // Scroll back to top
+                } else {
+                    window.location.href = '/profile'; // Kick them back to dashboard
+                }
+            }
+        }
+    </script>
+</body>
+</html>

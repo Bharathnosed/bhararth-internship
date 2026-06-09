@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Global Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        /* WhatsApp-style Theme */
+        #chatBox { 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px; 
+            height: 400px; 
+            overflow-y: auto; 
+            padding: 15px; 
+            background-color: #efeae2; /* WhatsApp chat background */
+            margin-bottom: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+        }
+        .message { 
+            padding: 8px 12px; 
+            border-radius: 8px; 
+            max-width: 75%; 
+            width: fit-content; 
+            word-wrap: break-word; 
+            font-size: 15px; 
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1); /* Slight shadow for depth */
+        }
+        .message.other { 
+            background: #ffffff; /* White for others */
+            align-self: flex-start; 
+            border-top-left-radius: 0; /* Classic chat bubble tail */
+        }
+        .message.mine { 
+            background: #dcf8c6; /* WhatsApp Green for you */
+            align-self: flex-end; 
+            border-top-right-radius: 0; 
+        }
+        .message strong { 
+            font-size: 12px; 
+            display: block; 
+            margin-bottom: 4px; 
+        }
+        .message.mine strong { color: #075e54; }
+        .message.other strong { color: #128c7e; }
+        
+        .input-group { display: flex; gap: 10px; }
+        .input-group input { 
+            flex-grow: 1; 
+            margin: 0; 
+            padding: 12px; 
+            border-radius: 24px; 
+            border: 1px solid #ccc; 
+        }
+        .input-group button { 
+            margin: 0; 
+            white-space: nowrap; 
+            border-radius: 24px; 
+            background-color: #00a884; /* WhatsApp button green */
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 600px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Live Global Chat</h2>
+            <a href="/profile" style="color: #6f42c1; text-decoration: none; font-weight: bold;">← Exit Chat</a>
+        </div>
+
+        <div id="chatBox">
+            </div>
+
+        <div class="input-group">
+            <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+            <button onclick="sendMessage()" style="background-color: #6f42c1;">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io(); // Connect to the WebSocket server
+        const currentUser = "{{ username }}";
+        const chatBox = document.getElementById('chatBox');
+        const messageInput = document.getElementById('messageInput');
+
+        // Allow sending message with Enter key
+        messageInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") sendMessage();
+        });
+
+        // 1. Load History on Connect
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/messages');
+                if (response.ok) {
+                    const messages = await response.json();
+                    messages.forEach(msg => appendMessage(msg.username, msg.content));
+                }
+            } catch (err) { console.error("Failed to load history."); }
+        });
+
+        // 2. Listen for Real-Time Messages
+        socket.on('receive_message', function(data) {
+            appendMessage(data.username, data.message);
+        });
+
+        // 3. Send Message
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text === '') return;
+            
+            socket.emit('send_message', { message: text });
+            messageInput.value = ''; // Clear input
+            messageInput.focus();
+        }
+
+        // 4. UI Rendering Logic
+        function appendMessage(sender, text) {
+            const div = document.createElement('div');
+            const isMine = (sender === currentUser);
+            div.className = isMine ? 'message mine' : 'message other';
+            div.innerHTML = `<strong>${isMine ? 'You' : sender}</strong> ${text}`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+        }
+    </script>
+</body>
+</html>

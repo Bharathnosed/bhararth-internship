@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify, render_template, session, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 app.secret_key = 'replace_this_with_a_long_random_string_later' 
+socketio = SocketIO(app)
 
 def get_db_connection():
     conn = sqlite3.connect('app.db')
@@ -49,6 +51,19 @@ def orders_page():
     if 'user_id' not in session: return redirect('/login')
     return render_template('orders.html', username=session['username'])
 
+@app.route('/chat', methods=['GET'])
+def chat_page():
+    if 'user_id' not in session: return redirect('/login')
+    return render_template('chat.html', username=session['username'])
+@app.route('/quiz', methods=['GET'])
+def quiz_page():
+    if 'user_id' not in session: return redirect('/login')
+    return render_template('quiz.html', username=session['username'])
+
+@app.route('/admin/quiz', methods=['GET'])
+def admin_quiz_page():
+    if 'user_id' not in session: return redirect('/login')
+    return render_template('admin_quiz.html', username=session['username'])
 
 # ==========================================
 # TASK 1: AUTHENTICATION API
@@ -228,5 +243,85 @@ def get_orders():
     conn.close()
     return jsonify(order_list), 200
 
+# ==========================================
+# TASK 5: REAL-TIME CHAT API & SOCKETS
+# ==========================================
+@app.route('/api/messages', methods=['GET'])
+def get_chat_history():
+    if 'user_id' not in session: return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db_connection()
+    messages = conn.execute("SELECT m.content, m.timestamp, u.username FROM messages m JOIN users u ON m.user_id = u.id ORDER BY m.timestamp ASC LIMIT 50").fetchall()
+    conn.close()
+    return jsonify([dict(m) for m in messages]), 200
+
+@socketio.on('send_message')
+def handle_message(data):
+    if 'user_id' not in session: return False
+    content = data.get('message')
+    if not content: return False
+
+    conn = get_db_connection()
+    conn.execute("INSERT INTO messages (user_id, content) VALUES (?, ?)", (session['user_id'], content))
+    conn.commit()
+    conn.close()
+
+    emit('receive_message', {'username': session['username'], 'message': content}, broadcast=True)
+
+# ==========================================
+# TASK 6: QUIZ API
+# ==========================================
+@app.route('/api/questions', methods=['GET', 'POST'])
+def handle_questions():
+    if 'user_id' not in session: return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db_connection()
+    if request.method == 'GET':
+        # Notice we do NOT select 'correct_option'. The frontend shouldn't know it.
+        questions = conn.execute("SELECT id, question_text, option_a, option_b, option_c, option_d FROM questions").fetchall()
+        conn.close()
+        return jsonify([dict(q) for q in questions]), 200
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        conn.execute("INSERT INTO questions (question_text, option_a, option_b, option_c, option_d, correct_option) VALUES (?, ?, ?, ?, ?, ?)",
+                     (data['question_text'], data['option_a'], data['option_b'], data['option_c'], data['option_d'], data['correct_option']))
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "Question added"}), 201
+
+@app.route('/api/quiz/submit', methods=['POST'])
+def submit_quiz():
+    if 'user_id' not in session: return jsonify({"error": "Unauthorized"}), 401
+    answers = request.get_json().get('answers', {})
+    if not answers: return jsonify({"error": "No answers provided"}), 400
+
+    conn = get_db_connection()
+    questions = conn.execute("SELECT id, correct_option FROM questions").fetchall()
+    
+    score = 0
+    feedback = []
+    
+    # Grading happens purely on the backend
+    for q in questions:
+        qid = str(q['id'])
+        user_ans = answers.get(qid)
+        is_correct = (user_ans == q['correct_option'])
+        if is_correct: score += 1
+        feedback.append({"question_id": q['id'], "user_answer": user_ans, "correct_answer": q['correct_option'], "is_correct": is_correct})
+        
+    total = len(questions)
+    conn.execute("INSERT INTO quiz_scores (user_id, score, total) VALUES (?, ?, ?)", (session['user_id'], score, total))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"score": score, "total": total, "feedback": feedback}), 200
+
+@app.route('/api/scores', methods=['GET'])
+def get_scores():
+    if 'user_id' not in session: return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db_connection()
+    scores = conn.execute("SELECT score, total, created_at FROM quiz_scores WHERE user_id = ? ORDER BY created_at DESC", (session['user_id'],)).fetchall()
+    conn.close()
+    return jsonify([dict(s) for s in scores]), 200
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Notice we are running socketio.run, NOT app.run
+    socketio.run(app, debug=True, port=5000)
